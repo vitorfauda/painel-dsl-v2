@@ -138,13 +138,30 @@ export default function IssueLicense() {
         plan_id: form.planId,
         status: 'active',
         expires_at: expiresAt,
-        max_activations: Number(form.maxActivations) || 1,
+        max_activations: Number(form.maxActivations) || 3,
         mercadopago_payment_id: 'manual',
-      }).select('license_key').single();
+      }).select('id, license_key').single();
       if (licErr) throw new Error(licErr.message);
 
-      setGenerated({ key: lic.license_key, planName: selectedPlan?.name || '' });
-      toast.success('Licença emitida!');
+      // Envia via WhatsApp se tiver telefone
+      let sentWa = false;
+      if (phoneDigits) {
+        try {
+          const { data: sendData } = await supabase.functions.invoke('send-license-whatsapp', {
+            body: { license_id: lic.id },
+          });
+          sentWa = !!sendData?.ok;
+        } catch (e) {
+          console.error('send-license-whatsapp error:', e);
+        }
+      }
+
+      setGenerated({
+        key: lic.license_key,
+        planName: selectedPlan?.name || '',
+        sentToWhatsapp: sentWa,
+      });
+      toast.success(sentWa ? 'Licença emitida e enviada no WhatsApp!' : 'Licença emitida!');
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
