@@ -169,7 +169,7 @@ export default function Dashboard() {
                 <div className="flex-1 text-sm">
                   <div className="font-medium">{p.package_size} chaves</div>
                   <div className="text-xs text-text-muted">
-                    {new Date(p.created_at).toLocaleString('pt-BR')}
+                    {new Date(p.created_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
                   </div>
                 </div>
                 <div className="text-right">
