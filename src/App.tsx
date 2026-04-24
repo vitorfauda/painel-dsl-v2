@@ -9,7 +9,13 @@ import Dashboard from '@/pages/Dashboard';
 import Resellers from '@/pages/Resellers';
 import Ranking from '@/pages/Ranking';
 import ResellerPurchases from '@/pages/ResellerPurchases';
-import ComingSoon from '@/pages/ComingSoon';
+import Licenses from '@/pages/Licenses';
+import IssueLicense from '@/pages/IssueLicense';
+import Customers from '@/pages/Customers';
+import Coupons from '@/pages/Coupons';
+import ExtensionVersion from '@/pages/ExtensionVersion';
+import AuditLog from '@/pages/AuditLog';
+import Settings from '@/pages/Settings';
 
 const qc = new QueryClient({
   defaultOptions: { queries: { refetchOnWindowFocus: false, staleTime: 30000 } },
@@ -34,14 +40,13 @@ export default function App() {
               <Route path="/ranking" element={<Ranking />} />
               <Route path="/reseller-purchases" element={<ResellerPurchases />} />
 
-              {/* Rodada B — placeholders */}
-              <Route path="/licenses" element={<ComingSoon title="Licenças" subtitle="Lista completa de licenças emitidas" />} />
-              <Route path="/issue-license" element={<ComingSoon title="Emitir licença" subtitle="Crie uma licença manualmente" />} />
-              <Route path="/customers" element={<ComingSoon title="Clientes" subtitle="Base de clientes cadastrados" />} />
-              <Route path="/coupons" element={<ComingSoon title="Cupons" subtitle="Gerenciar códigos de desconto" />} />
-              <Route path="/extension-version" element={<ComingSoon title="Versão da extensão" subtitle="Publicar nova versão" />} />
-              <Route path="/audit" element={<ComingSoon title="Log de auditoria" subtitle="Histórico de eventos do sistema" />} />
-              <Route path="/settings" element={<ComingSoon title="Configurações" subtitle="Ajustes gerais" />} />
+              <Route path="/licenses" element={<Licenses />} />
+              <Route path="/issue-license" element={<IssueLicense />} />
+              <Route path="/customers" element={<Customers />} />
+              <Route path="/coupons" element={<Coupons />} />
+              <Route path="/extension-version" element={<ExtensionVersion />} />
+              <Route path="/audit" element={<AuditLog />} />
+              <Route path="/settings" element={<Settings />} />
             </Route>
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
