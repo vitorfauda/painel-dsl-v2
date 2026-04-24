@@ -220,7 +220,7 @@ function fromLocalInput(local: string): string | null {
 function LicenseDrawer({ license, plans, editing, onEdit, onClose, onSave, onCancel, onStatus, onDelete, onCopy, copied }: any) {
   const [planId, setPlanId] = useState(license.plan_id || '');
   const [expiresAt, setExpiresAt] = useState(toLocalInput(license.expires_at));
-  const [maxActivations, setMaxActivations] = useState(license.max_activations || 1);
+  const [maxActivations, setMaxActivations] = useState(license.max_activations || 3);
   const [status, setStatus] = useState(license.status);
 
   const isExp = !!license.expires_at && new Date(license.expires_at) < new Date();
@@ -243,7 +243,7 @@ function LicenseDrawer({ license, plans, editing, onEdit, onClose, onSave, onCan
     onSave({
       plan_id: planId || null,
       expires_at: fromLocalInput(expiresAt),
-      max_activations: Number(maxActivations) || 1,
+      max_activations: Number(maxActivations) || 3,
       status,
     });
   };
