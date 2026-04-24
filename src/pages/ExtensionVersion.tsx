@@ -65,7 +65,7 @@ export default function ExtensionVersion() {
   if (loading) return <div className="min-h-[60vh] flex items-center justify-center"><LoaderRing size={40} /></div>;
 
   return (
-    <div className="container mx-auto px-4 sm:px-6 py-8">
+    <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
       <PageHeader icon={DownloadCloud} title="Versão da extensão" subtitle="Publique uma nova versão e bloqueie as antigas automaticamente" />
 
       <div className="grid lg:grid-cols-[1fr_340px] gap-6 max-w-5xl">

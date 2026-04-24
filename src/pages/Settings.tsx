@@ -33,7 +33,7 @@ export default function Settings() {
   };
 
   return (
-    <div className="container mx-auto px-4 sm:px-6 py-8 max-w-4xl">
+    <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 max-w-4xl">
       <PageHeader icon={SettingsIcon} title="Configurações" subtitle="Preferências da conta de admin" />
 
       <div className="grid md:grid-cols-[200px_1fr] gap-6">

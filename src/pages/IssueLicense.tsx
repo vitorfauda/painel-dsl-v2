@@ -118,7 +118,7 @@ export default function IssueLicense() {
 
   if (generated) {
     return (
-      <div className="container mx-auto px-4 sm:px-6 py-8">
+      <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <PageHeader icon={FileKey} title="Licença emitida" subtitle="Copie a chave e repasse pro cliente" />
         <div className="holo-card holo-permanent p-8 max-w-2xl">
           <div className="mb-6">
@@ -143,7 +143,7 @@ export default function IssueLicense() {
   }
 
   return (
-    <div className="container mx-auto px-4 sm:px-6 py-8">
+    <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
       <PageHeader icon={FileKey} title="Emitir licença" subtitle="Criação manual de uma licença" />
 
       <div className="grid lg:grid-cols-[1fr_340px] gap-6 max-w-5xl">

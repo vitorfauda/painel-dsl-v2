@@ -89,7 +89,7 @@ export default function Coupons() {
   };
 
   return (
-    <div className="container mx-auto px-4 sm:px-6 py-8">
+    <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
       <PageHeader icon={TicketPercent} title="Cupons de desconto" subtitle={`${coupons.filter(c => c.active).length} ativos de ${coupons.length} criados`}
         actions={<button onClick={() => setCreating(true)} className="cta-neon flex items-center gap-2 text-sm !py-2.5"><span className="relative z-10 flex items-center gap-2"><Plus size={14} /> Novo cupom</span></button>}
       />

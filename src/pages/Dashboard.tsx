@@ -96,7 +96,7 @@ export default function Dashboard() {
   if (!stats) return null;
 
   return (
-    <div className="container mx-auto px-4 sm:px-6 py-8">
+    <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
       <PageHeader
         icon={LayoutDashboard}
         title={`Olá, ${user?.email?.split('@')[0] || 'admin'}`}

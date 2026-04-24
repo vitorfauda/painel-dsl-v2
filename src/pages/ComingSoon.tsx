@@ -3,7 +3,7 @@ import { PageHeader } from '@/components/PageHeader';
 
 export default function ComingSoon({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
-    <div className="container mx-auto px-4 sm:px-6 py-8">
+    <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
       <PageHeader icon={Construction} title={title} subtitle={subtitle} />
       <div className="holo-card p-16 text-center">
         <div className="h-16 w-16 rounded-2xl bg-accent-gold/10 border border-accent-gold/30 flex items-center justify-center mx-auto mb-4">

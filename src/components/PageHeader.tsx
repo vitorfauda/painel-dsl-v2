@@ -7,19 +7,19 @@ export function PageHeader({ title, subtitle, actions, icon: Icon }: {
   icon?: any;
 }) {
   return (
-    <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
-      <div className="flex items-start gap-4">
+    <div className="flex flex-col sm:flex-row flex-wrap items-start sm:justify-between gap-4 mb-6 sm:mb-8">
+      <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
         {Icon && (
-          <div className="h-12 w-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-            <Icon size={20} className="text-primary" />
+          <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+            <Icon size={18} className="text-primary" />
           </div>
         )}
-        <div>
-          <h1 className="text-3xl sm:text-4xl font-display font-bold">{title}</h1>
-          {subtitle && <p className="text-text-muted mt-1 text-sm">{subtitle}</p>}
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold break-words">{title}</h1>
+          {subtitle && <p className="text-text-muted mt-1 text-xs sm:text-sm">{subtitle}</p>}
         </div>
       </div>
-      {actions && <div className="flex gap-2">{actions}</div>}
+      {actions && <div className="flex gap-2 flex-wrap w-full sm:w-auto">{actions}</div>}
     </div>
   );
 }

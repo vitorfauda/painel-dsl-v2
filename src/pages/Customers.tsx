@@ -87,7 +87,7 @@ export default function Customers() {
   const totalLicenses = customers.reduce((s, c) => s + (c.license_count || 0), 0);
 
   return (
-    <div className="container mx-auto px-4 sm:px-6 py-8">
+    <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
       <PageHeader icon={Users} title="Clientes" subtitle={`${customers.length} clientes · ${totalLicenses} licenças emitidas · ${formatBRL(totalSpent)} em receita estimada`} />
 
       <div className="relative mb-6">

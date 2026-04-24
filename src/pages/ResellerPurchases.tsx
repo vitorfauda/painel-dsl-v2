@@ -68,7 +68,7 @@ export default function ResellerPurchases() {
   const totalKeys = purchases.filter(p => p.payment_status === 'paid').reduce((s, p) => s + p.package_size, 0);
 
   return (
-    <div className="container mx-auto px-4 sm:px-6 py-8">
+    <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
       <PageHeader
         icon={ShoppingBag}
         title="Compras de revenda"
@@ -103,7 +103,7 @@ export default function ResellerPurchases() {
         <div className="holo-card p-12 text-center text-text-muted">Nenhuma compra encontrada.</div>
       ) : (
         <div className="holo-card overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-text-muted text-left text-xs uppercase tracking-wider" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>

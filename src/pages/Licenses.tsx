@@ -109,7 +109,7 @@ export default function Licenses() {
   };
 
   return (
-    <div className="container mx-auto px-4 sm:px-6 py-8">
+    <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
       <PageHeader icon={Key} title="Licenças" subtitle={`${counts.all} licenças · ${counts.active} ativas`} />
 
       <div className="flex gap-2 mb-4 overflow-x-auto">
@@ -133,7 +133,7 @@ export default function Licenses() {
       {loading ? <div className="min-h-[40vh] flex items-center justify-center"><LoaderRing size={32} /></div> :
        filtered.length === 0 ? <div className="holo-card p-12 text-center text-text-muted">Nenhuma licença encontrada.</div> :
         <div className="holo-card overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-text-muted text-left text-xs uppercase tracking-wider" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>

@@ -58,7 +58,7 @@ export default function AuditLog() {
   };
 
   return (
-    <div className="container mx-auto px-4 sm:px-6 py-8">
+    <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
       <PageHeader icon={ScrollText} title="Log de auditoria" subtitle="Histórico de eventos do sistema" />
 
       <div className="grid sm:grid-cols-3 gap-4 mb-6">
