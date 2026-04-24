@@ -27,7 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  const signOut = async () => { await supabase.auth.signOut(); };
+  const signOut = async () => { await supabase.auth.signOut({ scope: 'local' }); };
 
   const user = session?.user ?? null;
   const isAdmin = !!user && (
