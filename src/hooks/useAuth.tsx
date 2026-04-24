@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 
-const ADMIN_EMAILS = ['v17tormr@gmail.com', 'v13tormr@gmail.com', 'v15tormr@gmail.com'];
+const ADMIN_EMAILS = ['v17tormr@gmail.com'];
 
 interface AuthContextValue {
   session: Session | null;
