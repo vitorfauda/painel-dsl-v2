@@ -22,6 +22,7 @@ type Reseller = {
   total_revenue_cents: number;
   entry_paid: boolean;
   pix_key?: string;
+  min_purchase_quantity?: number;
   created_at: string;
 };
 
@@ -69,6 +70,23 @@ export default function Resellers() {
     toast.success('Status atualizado');
     load();
     if (detail?.id === id) setDetail({ ...detail, status });
+  };
+
+  const updateMinPurchase = async (id: string, minQty: number) => {
+    const clamped = Math.min(100, Math.max(1, minQty));
+    const { error } = await supabase.from('resellers').update({ min_purchase_quantity: clamped, updated_at: new Date().toISOString() }).eq('id', id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`Mínimo de compra: ${clamped} ${clamped === 1 ? 'chave' : 'chaves'}`);
+    load();
+    if (detail?.id === id) setDetail({ ...detail, min_purchase_quantity: clamped });
+  };
+
+  const updateTier = async (id: string, tier: string) => {
+    const { error } = await supabase.from('resellers').update({ tier, updated_at: new Date().toISOString() }).eq('id', id);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Tier atualizado');
+    load();
+    if (detail?.id === id) setDetail({ ...detail, tier });
   };
 
   const copyRef = async (code: string) => {
@@ -144,7 +162,12 @@ export default function Resellers() {
 
               <div className="mt-4 pt-3 flex items-center justify-between border-t text-xs text-text-muted" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
                 <span className="font-mono">{r.ref_code}</span>
-                <MoreHorizontal size={14} />
+                <div className="flex items-center gap-2">
+                  {r.min_purchase_quantity === 1 && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent-gold/15 text-accent-gold font-semibold">VIP · min 1</span>
+                  )}
+                  <MoreHorizontal size={14} />
+                </div>
               </div>
             </motion.button>
           ))}
@@ -206,6 +229,56 @@ export default function Resellers() {
                 <Row label="PIX" value={detail.pix_key || '—'} />
                 <Row label="Criado em" value={formatDateTime(detail.created_at)} />
                 <Row label="Entry paga" value={detail.entry_paid ? 'Sim' : 'Não'} />
+              </Section>
+
+              <Section title="Regras de compra">
+                <div className="space-y-3">
+                  <div>
+                    <div className="text-xs text-text-muted mb-2">
+                      Quantidade mínima de chaves por compra
+                      <span className="ml-2 text-[10px] text-text-dim">(atual: {detail.min_purchase_quantity || 2})</span>
+                    </div>
+                    <div className="grid grid-cols-4 gap-1.5 mb-2">
+                      {[1, 2, 5, 10].map(n => (
+                        <button
+                          key={n}
+                          onClick={() => updateMinPurchase(detail.id, n)}
+                          className={`px-2 py-2 rounded-lg text-xs font-semibold transition-all ${
+                            (detail.min_purchase_quantity || 2) === n
+                              ? 'bg-primary text-void shadow-lg shadow-primary/30'
+                              : 'bg-white/5 text-text-muted hover:bg-white/10'
+                          }`}
+                        >
+                          {n} {n === 1 ? 'chave' : 'chaves'}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="text-[10px] text-text-dim mt-1">
+                      Padrão: <span className="text-text-muted">2</span>. Use <span className="text-primary">1</span> pra contas especiais/VIP.
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-xs text-text-muted mb-2">
+                      Tier <span className="ml-2 text-[10px] text-text-dim">(atual: {detail.tier?.toUpperCase() || 'BRONZE'})</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {(['bronze', 'prata', 'ouro'] as const).map(t => (
+                        <button
+                          key={t}
+                          onClick={() => updateTier(detail.id, t)}
+                          className={`px-2 py-2 rounded-lg text-xs font-semibold uppercase transition-all ${
+                            detail.tier === t
+                              ? (t === 'ouro' ? 'bg-accent-gold text-void' : t === 'prata' ? 'bg-white text-void' : 'bg-amber-700 text-void')
+                              : 'bg-white/5 text-text-muted hover:bg-white/10'
+                          }`}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </Section>
 
               <Section title="Ações">
