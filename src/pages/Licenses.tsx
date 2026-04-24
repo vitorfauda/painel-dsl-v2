@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { motion } from 'framer-motion';
-import { Key, Search, Copy, Check, X, Trash2, Edit3, Power, PowerOff, Users, Save } from 'lucide-react';
+import { Key, Search, Copy, Check, X, Trash2, Edit3, Power, PowerOff, Save, Clock, CalendarPlus, Infinity as InfinityIcon } from 'lucide-react';
 import { formatDate, formatDateTime, copyToClipboard } from '@/lib/utils';
 import { toast } from 'sonner';
 import { LoaderRing } from '@/components/LoaderRing';
@@ -183,6 +183,7 @@ export default function Licenses() {
           onEdit={() => setEditing(true)}
           onClose={() => { setDetail(null); setEditing(false); }}
           onSave={(changes: Partial<License>) => saveEdit(detail.id, changes)}
+          onCancel={() => setEditing(false)}
           onStatus={(s: string) => updateStatus(detail.id, s)}
           onDelete={() => deleteLicense(detail.id)}
           onCopy={() => copyKey(detail.id, detail.license_key)}
@@ -200,22 +201,56 @@ function StatusBadge({ l, isExp }: { l: License; isExp: boolean }) {
   return <span className="text-xs px-2 py-1 rounded-full bg-white/10 text-text-muted">{l.status}</span>;
 }
 
-function LicenseDrawer({ license, plans, editing, onEdit, onClose, onSave, onStatus, onDelete, onCopy, copied }: any) {
+// Converte ISO → formato datetime-local (YYYY-MM-DDTHH:mm) no timezone SP
+function toLocalInput(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  // Ajusta pro timezone local do browser
+  const tzOffset = d.getTimezoneOffset() * 60000;
+  const local = new Date(d.getTime() - tzOffset);
+  return local.toISOString().slice(0, 16);
+}
+
+// datetime-local → ISO
+function fromLocalInput(local: string): string | null {
+  if (!local) return null;
+  return new Date(local).toISOString();
+}
+
+function LicenseDrawer({ license, plans, editing, onEdit, onClose, onSave, onCancel, onStatus, onDelete, onCopy, copied }: any) {
   const [planId, setPlanId] = useState(license.plan_id || '');
-  const [expiresAt, setExpiresAt] = useState(license.expires_at ? license.expires_at.slice(0, 10) : '');
+  const [expiresAt, setExpiresAt] = useState(toLocalInput(license.expires_at));
   const [maxActivations, setMaxActivations] = useState(license.max_activations || 1);
   const [status, setStatus] = useState(license.status);
 
-  const isExp = license.expires_at && new Date(license.expires_at) < new Date();
+  const isExp = !!license.expires_at && new Date(license.expires_at) < new Date();
+
+  // Adiciona tempo (em ms) a partir de AGORA (se expirada) ou da data atual (se ainda ativa)
+  const addTime = (ms: number) => {
+    const base = (!expiresAt || new Date(expiresAt) < new Date()) ? new Date() : new Date(expiresAt);
+    const next = new Date(base.getTime() + ms);
+    setExpiresAt(toLocalInput(next.toISOString()));
+    // Se estava expirada, muda status automaticamente pra active
+    if (isExp || status === 'expired') setStatus('active');
+  };
+
+  const setVitalicia = () => {
+    setExpiresAt('');
+    if (status === 'expired') setStatus('active');
+  };
 
   const handleSave = () => {
     onSave({
       plan_id: planId || null,
-      expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
+      expires_at: fromLocalInput(expiresAt),
       max_activations: Number(maxActivations) || 1,
       status,
     });
   };
+
+  const MIN = 60 * 1000;
+  const HOUR = 60 * MIN;
+  const DAY = 24 * HOUR;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
@@ -263,7 +298,22 @@ function LicenseDrawer({ license, plans, editing, onEdit, onClose, onSave, onSta
               </div>
 
               <div className="space-y-2">
-                <button onClick={onEdit} className="cta-ghost w-full flex items-center justify-center gap-2"><Edit3 size={14} /> Editar licença</button>
+                {/* Botoes rapidos de tempo direto na visualizacao */}
+                {(isExp || license.status === 'active') && (
+                  <div>
+                    <div className="text-[10px] text-text-dim uppercase tracking-widest font-semibold mb-2 flex items-center gap-1.5">
+                      <CalendarPlus size={12} /> Adicionar tempo rápido
+                    </div>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      <QuickExtendBtn label="+1h" license={license} ms={60*60*1000} onSave={onSave} />
+                      <QuickExtendBtn label="+1 dia" license={license} ms={24*60*60*1000} onSave={onSave} />
+                      <QuickExtendBtn label="+7 dias" license={license} ms={7*24*60*60*1000} onSave={onSave} />
+                      <QuickExtendBtn label="+30 dias" license={license} ms={30*24*60*60*1000} onSave={onSave} />
+                    </div>
+                  </div>
+                )}
+
+                <button onClick={onEdit} className="cta-ghost w-full flex items-center justify-center gap-2 mt-2"><Edit3 size={14} /> Editar manualmente</button>
                 <div className="grid grid-cols-2 gap-2">
                   {license.status !== 'active' && <button onClick={() => onStatus('active')} className="cta-ghost !py-2 text-sm flex items-center justify-center gap-2"><Power size={14} className="text-primary" /> Ativar</button>}
                   {license.status !== 'suspended' && <button onClick={() => onStatus('suspended')} className="cta-ghost !py-2 text-sm flex items-center justify-center gap-2"><PowerOff size={14} className="text-accent-gold" /> Suspender</button>}
@@ -274,7 +324,41 @@ function LicenseDrawer({ license, plans, editing, onEdit, onClose, onSave, onSta
               </div>
             </>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-5">
+              {isExp && (
+                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-xs text-red-400 flex items-center gap-2">
+                  <Clock size={14} /> Licença expirada. Ao adicionar tempo, ela será reativada automaticamente.
+                </div>
+              )}
+
+              {/* Atalhos de tempo */}
+              <div>
+                <label className="block text-sm text-text-muted mb-2 flex items-center gap-2"><CalendarPlus size={14} /> Adicionar tempo</label>
+                <div className="grid grid-cols-4 gap-1.5 mb-2">
+                  <button onClick={() => addTime(10 * MIN)} className="px-2 py-2 rounded-lg bg-white/5 hover:bg-primary/10 hover:text-primary text-xs font-medium transition-all">+10 min</button>
+                  <button onClick={() => addTime(30 * MIN)} className="px-2 py-2 rounded-lg bg-white/5 hover:bg-primary/10 hover:text-primary text-xs font-medium transition-all">+30 min</button>
+                  <button onClick={() => addTime(1 * HOUR)} className="px-2 py-2 rounded-lg bg-white/5 hover:bg-primary/10 hover:text-primary text-xs font-medium transition-all">+1 hora</button>
+                  <button onClick={() => addTime(3 * HOUR)} className="px-2 py-2 rounded-lg bg-white/5 hover:bg-primary/10 hover:text-primary text-xs font-medium transition-all">+3 horas</button>
+                </div>
+                <div className="grid grid-cols-4 gap-1.5 mb-2">
+                  <button onClick={() => addTime(1 * DAY)} className="px-2 py-2 rounded-lg bg-white/5 hover:bg-primary/10 hover:text-primary text-xs font-medium transition-all">+1 dia</button>
+                  <button onClick={() => addTime(7 * DAY)} className="px-2 py-2 rounded-lg bg-white/5 hover:bg-primary/10 hover:text-primary text-xs font-medium transition-all">+7 dias</button>
+                  <button onClick={() => addTime(30 * DAY)} className="px-2 py-2 rounded-lg bg-white/5 hover:bg-primary/10 hover:text-primary text-xs font-medium transition-all">+30 dias</button>
+                  <button onClick={() => addTime(90 * DAY)} className="px-2 py-2 rounded-lg bg-white/5 hover:bg-primary/10 hover:text-primary text-xs font-medium transition-all">+90 dias</button>
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button onClick={() => addTime(365 * DAY)} className="px-2 py-2 rounded-lg bg-white/5 hover:bg-primary/10 hover:text-primary text-xs font-medium transition-all">+1 ano</button>
+                  <button onClick={setVitalicia} className="px-2 py-2 rounded-lg bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 text-xs font-medium transition-all flex items-center justify-center gap-1"><InfinityIcon size={12} /> Vitalícia</button>
+                </div>
+              </div>
+
+              {/* Data/hora manual */}
+              <div>
+                <label className="block text-sm text-text-muted mb-2">Expira em (data + hora)</label>
+                <input type="datetime-local" value={expiresAt} onChange={e => setExpiresAt(e.target.value)} className="input-dsl" />
+                <div className="text-xs text-text-dim mt-1">Vazio = licença vitalícia (nunca expira)</div>
+              </div>
+
               <div>
                 <label className="block text-sm text-text-muted mb-2">Plano</label>
                 <select value={planId} onChange={e => setPlanId(e.target.value)} className="input-dsl">
@@ -282,25 +366,24 @@ function LicenseDrawer({ license, plans, editing, onEdit, onClose, onSave, onSta
                   {plans.map((p: Plan) => <option key={p.id} value={p.id}>{p.name} ({p.code})</option>)}
                 </select>
               </div>
-              <div>
-                <label className="block text-sm text-text-muted mb-2">Expira em (data)</label>
-                <input type="date" value={expiresAt} onChange={e => setExpiresAt(e.target.value)} className="input-dsl" />
-                <div className="text-xs text-text-dim mt-1">Deixe vazio pra licença vitalícia</div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm text-text-muted mb-2">Máx. ativações</label>
+                  <input type="number" min={1} value={maxActivations} onChange={e => setMaxActivations(e.target.value)} className="input-dsl" />
+                </div>
+                <div>
+                  <label className="block text-sm text-text-muted mb-2">Status</label>
+                  <select value={status} onChange={e => setStatus(e.target.value)} className="input-dsl">
+                    <option value="active">Ativa</option>
+                    <option value="suspended">Suspensa</option>
+                    <option value="expired">Expirada</option>
+                  </select>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm text-text-muted mb-2">Máx. ativações</label>
-                <input type="number" min={1} value={maxActivations} onChange={e => setMaxActivations(e.target.value)} className="input-dsl" />
-              </div>
-              <div>
-                <label className="block text-sm text-text-muted mb-2">Status</label>
-                <select value={status} onChange={e => setStatus(e.target.value)} className="input-dsl">
-                  <option value="active">Ativa</option>
-                  <option value="suspended">Suspensa</option>
-                  <option value="expired">Expirada</option>
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <button onClick={() => onSave === null} className="cta-ghost" type="button">Cancelar</button>
+
+              <div className="grid grid-cols-2 gap-2 pt-2">
+                <button onClick={onCancel} className="cta-ghost" type="button">Cancelar</button>
                 <button onClick={handleSave} className="cta-neon flex items-center justify-center gap-2"><span className="relative z-10 flex items-center gap-2"><Save size={14} /> Salvar</span></button>
               </div>
             </div>
@@ -317,5 +400,25 @@ function Info({ label, value }: { label: string; value: any }) {
       <div className="text-[10px] text-text-dim uppercase tracking-wider font-semibold mb-1">{label}</div>
       <div className="text-sm font-medium">{value}</div>
     </div>
+  );
+}
+
+function QuickExtendBtn({ label, license, ms, onSave }: { label: string; license: any; ms: number; onSave: (c: any) => void }) {
+  const handle = () => {
+    const isExp = !!license.expires_at && new Date(license.expires_at) < new Date();
+    const base = (!license.expires_at || isExp) ? new Date() : new Date(license.expires_at);
+    const next = new Date(base.getTime() + ms);
+    onSave({
+      expires_at: next.toISOString(),
+      status: 'active',
+    });
+  };
+  return (
+    <button
+      onClick={handle}
+      className="px-2 py-2 rounded-lg bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 text-xs font-medium transition-all"
+    >
+      {label}
+    </button>
   );
 }
