@@ -13,6 +13,8 @@ import {
   ScrollText,
   Settings as SettingsIcon,
   LogOut,
+  CalendarRange,
+  ArrowDownToLine,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -32,11 +34,18 @@ const groups = [
     ],
   },
   {
+    label: 'Vendas',
+    items: [
+      { to: '/subscriptions', label: 'Assinaturas', icon: CalendarRange },
+      { to: '/customers', label: 'Clientes', icon: Users },
+      { to: '/transfers', label: 'Saques', icon: ArrowDownToLine },
+    ],
+  },
+  {
     label: 'Licenças',
     items: [
       { to: '/licenses', label: 'Licenças', icon: Key },
       { to: '/issue-license', label: 'Emitir licença', icon: FileKey },
-      { to: '/customers', label: 'Clientes', icon: Users },
     ],
   },
   {

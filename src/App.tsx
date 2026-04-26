@@ -16,6 +16,8 @@ import Coupons from '@/pages/Coupons';
 import ExtensionVersion from '@/pages/ExtensionVersion';
 import AuditLog from '@/pages/AuditLog';
 import Settings from '@/pages/Settings';
+import Subscriptions from '@/pages/Subscriptions';
+import Transfers from '@/pages/Transfers';
 
 const qc = new QueryClient({
   defaultOptions: { queries: { refetchOnWindowFocus: false, staleTime: 30000 } },
@@ -43,6 +45,8 @@ export default function App() {
               <Route path="/licenses" element={<Licenses />} />
               <Route path="/issue-license" element={<IssueLicense />} />
               <Route path="/customers" element={<Customers />} />
+              <Route path="/subscriptions" element={<Subscriptions />} />
+              <Route path="/transfers" element={<Transfers />} />
               <Route path="/coupons" element={<Coupons />} />
               <Route path="/extension-version" element={<ExtensionVersion />} />
               <Route path="/audit" element={<AuditLog />} />

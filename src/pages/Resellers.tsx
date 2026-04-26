@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { motion } from 'framer-motion';
-import { Search, UserCog, Mail, Phone, CheckCircle2, XCircle, MoreHorizontal, X, Copy, Check } from 'lucide-react';
+import { Search, UserCog, Mail, Phone, CheckCircle2, XCircle, MoreHorizontal, X, Copy, Check, RefreshCw, Banknote, ExternalLink, AlertTriangle } from 'lucide-react';
 import { formatBRL, formatDateTime, maskCPF, maskPhone, copyToClipboard } from '@/lib/utils';
 import { LoaderRing } from '@/components/LoaderRing';
 import { PageHeader } from '@/components/PageHeader';
@@ -23,6 +23,13 @@ type Reseller = {
   entry_paid: boolean;
   pix_key?: string;
   min_purchase_quantity?: number;
+  // Pagar.me onboarding
+  pagarme_recipient_id?: string | null;
+  pagarme_kyc_status?: string | null;
+  pagarme_kyc_link?: string | null;
+  slug?: string | null;
+  commission_percent?: number;
+  active_customers_count?: number;
   created_at: string;
 };
 
@@ -87,6 +94,52 @@ export default function Resellers() {
     toast.success('Tier atualizado');
     load();
     if (detail?.id === id) setDetail({ ...detail, tier });
+  };
+
+  const updateCommission = async (id: string, percent: number) => {
+    const clamped = Math.max(0, Math.min(100, percent));
+    const { error } = await supabase.from('resellers').update({ commission_percent: clamped, updated_at: new Date().toISOString() }).eq('id', id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`Comissão atualizada: ${clamped}%`);
+    load();
+    if (detail?.id === id) setDetail({ ...detail, commission_percent: clamped });
+  };
+
+  const resetPagarmeOnboarding = async (id: string, name: string) => {
+    const ok = window.confirm(
+      `⚠️ ATENÇÃO\n\nIsso vai LIMPAR todos os dados Pagar.me do revenda "${name}":\n\n• pagarme_recipient_id\n• pagarme_kyc_status\n• pagarme_kyc_link\n• slug\n\nO recipient no Pagar.me NÃO é deletado (continua lá).\nO revenda terá que refazer o onboarding do zero.\n\nUsar só pra TESTES. Confirma?`
+    );
+    if (!ok) return;
+
+    const { error } = await supabase.from('resellers').update({
+      pagarme_recipient_id: null,
+      pagarme_kyc_status: 'pending',
+      pagarme_kyc_link: null,
+      slug: null,
+      updated_at: new Date().toISOString(),
+    }).eq('id', id);
+
+    if (error) { toast.error(error.message); return; }
+    toast.success('Onboarding Pagar.me resetado. Revenda pode refazer.');
+    load();
+    if (detail?.id === id) setDetail({
+      ...detail,
+      pagarme_recipient_id: null,
+      pagarme_kyc_status: 'pending',
+      pagarme_kyc_link: null,
+      slug: null,
+    });
+  };
+
+  const forceKycStatus = async (id: string, status: string) => {
+    const { error } = await supabase.from('resellers').update({
+      pagarme_kyc_status: status,
+      updated_at: new Date().toISOString(),
+    }).eq('id', id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`KYC status forçado: ${status}`);
+    load();
+    if (detail?.id === id) setDetail({ ...detail, pagarme_kyc_status: status });
   };
 
   const copyRef = async (code: string) => {
@@ -276,6 +329,82 @@ export default function Resellers() {
                           {t}
                         </button>
                       ))}
+                    </div>
+                  </div>
+                </div>
+              </Section>
+
+              <Section title="Pagar.me">
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <Row label="Recipient" value={detail.pagarme_recipient_id ? `${detail.pagarme_recipient_id.substring(0, 14)}…` : '—'} />
+                    <Row label="KYC" value={
+                      detail.pagarme_kyc_status === 'approved' ? '✅ Aprovado' :
+                      detail.pagarme_kyc_status === 'rejected' ? '❌ Reprovado' :
+                      detail.pagarme_kyc_status === 'under_review' ? '⏳ Em análise' :
+                      detail.pagarme_kyc_status === 'blocked' ? '🚫 Bloqueado' :
+                      detail.pagarme_kyc_status === 'pending' ? '⏸ Pendente' : '—'
+                    } />
+                    <Row label="Slug" value={detail.slug || '—'} />
+                    <Row label="Comissão" value={`${detail.commission_percent ?? 60}%`} />
+                  </div>
+
+                  {detail.slug && detail.pagarme_kyc_status === 'approved' && (
+                    <a href={`https://pay.devsemlimites.site/c/${detail.slug}`} target="_blank" rel="noreferrer" className="cta-ghost !py-2 text-xs w-full flex items-center justify-center gap-2">
+                      <ExternalLink size={12} /> Abrir link de venda
+                    </a>
+                  )}
+
+                  <div>
+                    <div className="text-xs text-text-muted mb-2">
+                      Comissão override <span className="ml-2 text-[10px] text-text-dim">(atual: {detail.commission_percent ?? 60}%)</span>
+                    </div>
+                    <div className="grid grid-cols-5 gap-1.5">
+                      {[60, 62.5, 65, 67.5, 70].map(p => (
+                        <button
+                          key={p}
+                          onClick={() => updateCommission(detail.id, p)}
+                          className={`px-1 py-2 rounded-lg text-[11px] font-semibold transition-all ${
+                            (detail.commission_percent ?? 60) === p
+                              ? 'bg-primary text-void shadow-lg shadow-primary/30'
+                              : 'bg-white/5 text-text-muted hover:bg-white/10'
+                          }`}
+                        >
+                          {p}%
+                        </button>
+                      ))}
+                    </div>
+                    <div className="text-[10px] text-text-dim mt-1">
+                      Override do cálculo automático por tier.
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-white/5">
+                    <div className="text-[10px] text-text-dim uppercase tracking-wider mb-2 flex items-center gap-1">
+                      <AlertTriangle size={10} className="text-amber-400" /> Zona de testes (admin)
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <button
+                        onClick={() => forceKycStatus(detail.id, 'approved')}
+                        className="cta-ghost !py-2 text-[11px] flex items-center justify-center gap-1"
+                        title="Força status approved (dispara email)"
+                      >
+                        <CheckCircle2 size={12} className="text-primary" /> Forçar approved
+                      </button>
+                      <button
+                        onClick={() => forceKycStatus(detail.id, 'rejected')}
+                        className="cta-ghost !py-2 text-[11px] flex items-center justify-center gap-1"
+                        title="Força status rejected"
+                      >
+                        <XCircle size={12} className="text-red-400" /> Forçar rejected
+                      </button>
+                      <button
+                        onClick={() => resetPagarmeOnboarding(detail.id, detail.name)}
+                        className="cta-ghost !py-2 text-[11px] flex items-center justify-center gap-1 col-span-2 hover:bg-red-500/10 hover:border-red-500/30"
+                        title="Limpa todos os campos Pagar.me — usa pra refazer onboarding do zero"
+                      >
+                        <RefreshCw size={12} className="text-red-400" /> Reset onboarding Pagar.me
+                      </button>
                     </div>
                   </div>
                 </div>
