@@ -67,8 +67,8 @@ export function Sidebar() {
       {/* Logo */}
       <div className="h-16 flex items-center gap-3 px-6 border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
         <div className="relative">
-          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary to-accent-cyan flex items-center justify-center shadow-lg shadow-primary/50">
-            <ShieldCheck size={18} className="text-void" strokeWidth={2.5} />
+          <div className="h-9 w-9 rounded-xl overflow-hidden">
+            <img src="/logo.png" alt="DSL" className="h-full w-full object-contain" />
           </div>
           <div className="absolute inset-0 rounded-xl bg-primary/40 blur-md -z-10" />
         </div>

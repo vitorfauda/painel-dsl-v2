@@ -37,8 +37,8 @@ export default function Login() {
       <div className="holo-card holo-permanent p-8 sm:p-10 w-full max-w-md relative z-10">
         <div className="flex flex-col items-center mb-8">
           <div className="relative mb-4">
-            <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary to-accent-cyan flex items-center justify-center shadow-xl shadow-primary/50">
-              <ShieldCheck size={26} className="text-void" strokeWidth={2.5} />
+            <div className="h-14 w-14 rounded-2xl overflow-hidden">
+              <img src="/logo.png" alt="DSL" className="h-full w-full object-contain" />
             </div>
             <div className="absolute inset-0 rounded-2xl bg-primary/50 blur-xl -z-10" />
           </div>
