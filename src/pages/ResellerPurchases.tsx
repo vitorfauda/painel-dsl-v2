@@ -1,167 +1,198 @@
-import { useEffect, useState } from 'react';
+// Vendas atribuídas a revendedores (modelo de comissão)
+// Lê subscriptions onde reseller_id é não-nulo
+import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { motion } from 'framer-motion';
-import { ShoppingBag, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { formatBRL, formatDateTime } from '@/lib/utils';
 import { LoaderRing } from '@/components/LoaderRing';
 import { PageHeader } from '@/components/PageHeader';
 
-type Purchase = {
+type Sub = {
   id: string;
-  reseller_id: string;
-  plan_code?: string;
-  package_size: number;
-  unit_price_cents: number;
-  total_cents: number;
+  plan_code: string;
+  status: string;
+  amount_cents: number;
+  commission_percent_at_sale: number | null;
   payment_method: string;
-  payment_status: string;
-  paid_at?: string;
   created_at: string;
-  keys_generated: number;
-  reseller?: { name: string; email: string };
+  paid_at?: string | null;
+  reseller_id: string;
+  customers?: { name?: string; email?: string };
+  resellers?: { name: string; slug: string };
 };
 
-const planLabel: Record<string, string> = {
+const PLAN: Record<string, string> = {
+  monthly: 'Mensal',
+  yearly: 'Anual',
+  '1dia': '1 dia',
   '7dias': '7 dias',
-  '30dias': '30 dias',
-  'vitalicio': 'Vitalícia',
 };
 
-export default function ResellerPurchases() {
-  const [purchases, setPurchases] = useState<Purchase[]>([]);
+const STATUS_TONE: Record<string, string> = {
+  active: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+  pending: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+  past_due: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
+  suspended: 'bg-red-500/10 text-red-400 border-red-500/20',
+  canceled: 'bg-white/5 text-[var(--color-text-muted)] border-[var(--color-border)]',
+};
+
+export default function ResellerSales() {
+  const [sales, setSales] = useState<Sub[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [tab, setTab] = useState<'all' | 'paid' | 'pending' | 'failed'>('all');
+  const [tab, setTab] = useState<'all' | 'active' | 'pending' | 'lost'>('all');
 
   const load = async () => {
     setLoading(true);
-    const { data } = await supabase.from('reseller_purchases')
-      .select('*, reseller:resellers!inner(name,email)')
-      .order('created_at', { ascending: false });
-    setPurchases((data || []) as any[]);
+    const { data } = await supabase
+      .from('subscriptions')
+      .select('*, customers(name,email), resellers!inner(name,slug)')
+      .not('reseller_id', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(500);
+    setSales((data || []) as any[]);
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
-  const filtered = purchases.filter(p => {
-    if (tab === 'paid' && p.payment_status !== 'paid') return false;
-    if (tab === 'pending' && p.payment_status !== 'pending') return false;
-    if (tab === 'failed' && !['failed', 'cancelled', 'refunded'].includes(p.payment_status)) return false;
-    if (search) {
-      const q = search.toLowerCase();
-      return p.reseller?.name?.toLowerCase().includes(q) ||
-             p.reseller?.email?.toLowerCase().includes(q) ||
-             p.id.includes(q);
-    }
-    return true;
-  });
+  const filtered = useMemo(() => {
+    return sales.filter((s) => {
+      if (tab === 'active' && s.status !== 'active') return false;
+      if (tab === 'pending' && s.status !== 'pending') return false;
+      if (tab === 'lost' && !['canceled', 'suspended', 'past_due'].includes(s.status)) return false;
+      if (search) {
+        const q = search.toLowerCase();
+        return (
+          s.customers?.name?.toLowerCase().includes(q) ||
+          s.customers?.email?.toLowerCase().includes(q) ||
+          s.resellers?.name?.toLowerCase().includes(q) ||
+          s.resellers?.slug?.toLowerCase().includes(q)
+        );
+      }
+      return true;
+    });
+  }, [sales, tab, search]);
 
   const counts = {
-    all: purchases.length,
-    paid: purchases.filter(p => p.payment_status === 'paid').length,
-    pending: purchases.filter(p => p.payment_status === 'pending').length,
-    failed: purchases.filter(p => ['failed', 'cancelled', 'refunded'].includes(p.payment_status)).length,
+    all: sales.length,
+    active: sales.filter((s) => s.status === 'active').length,
+    pending: sales.filter((s) => s.status === 'pending').length,
+    lost: sales.filter((s) => ['canceled', 'suspended', 'past_due'].includes(s.status)).length,
   };
 
-  const totalPaid = purchases.filter(p => p.payment_status === 'paid').reduce((s, p) => s + p.total_cents, 0);
-  const totalKeys = purchases.filter(p => p.payment_status === 'paid').reduce((s, p) => s + p.package_size, 0);
+  const totalRevenue = sales.filter((s) => s.status === 'active').reduce((sum, s) => sum + s.amount_cents, 0);
+  const totalCommission = sales
+    .filter((s) => s.status === 'active')
+    .reduce((sum, s) => sum + Math.round((s.amount_cents * (s.commission_percent_at_sale || 60)) / 100), 0);
 
   return (
-    <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
+    <div className="px-8 py-8 max-w-[1200px] mx-auto">
       <PageHeader
-        icon={ShoppingBag}
-        title="Compras de revenda"
-        subtitle={`${counts.paid} compras confirmadas · ${totalKeys} chaves vendidas · ${formatBRL(totalPaid)} em receita`}
+        title="Vendas via revenda"
+        subtitle={`${counts.active} assinaturas ativas · ${formatBRL(totalRevenue)} receita bruta · ${formatBRL(totalCommission)} em comissões pagas`}
       />
 
-      {/* Tabs */}
-      <div className="flex gap-2 mb-4 overflow-x-auto">
-        {([
-          ['all', `Todas (${counts.all})`],
-          ['paid', `Pagas (${counts.paid})`],
-          ['pending', `Pendentes (${counts.pending})`],
-          ['failed', `Falhas (${counts.failed})`],
-        ] as const).map(([k, l]) => (
-          <button key={k} onClick={() => setTab(k as any)} className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${
-            tab === k ? 'bg-primary text-void' : 'bg-white/5 text-text-muted hover:text-text-primary'
-          }`}>
-            {l}
-          </button>
-        ))}
-      </div>
-
-      {/* Busca */}
-      <div className="relative mb-6">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-dim" />
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por revendedor ou ID..." className="input-dsl pl-10" />
-      </div>
-
-      {loading ? (
-        <div className="min-h-[40vh] flex items-center justify-center"><LoaderRing size={32} /></div>
-      ) : filtered.length === 0 ? (
-        <div className="holo-card p-12 text-center text-text-muted">Nenhuma compra encontrada.</div>
-      ) : (
-        <div className="holo-card overflow-hidden">
-          <div className="overflow-x-auto -mx-4 sm:mx-0">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-text-muted text-left text-xs uppercase tracking-wider" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
-                  <th className="p-4 font-medium">Data</th>
-                  <th className="p-4 font-medium">Revendedor</th>
-                  <th className="p-4 font-medium">Plano</th>
-                  <th className="p-4 font-medium">Qtd</th>
-                  <th className="p-4 font-medium">Total</th>
-                  <th className="p-4 font-medium">Geradas</th>
-                  <th className="p-4 font-medium">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((p, i) => (
-                  <motion.tr
-                    key={p.id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: i * 0.02 }}
-                    className="border-b hover:bg-white/5"
-                    style={{ borderColor: 'rgba(255,255,255,0.04)' }}
-                  >
-                    <td className="p-4 text-text-muted text-xs">{formatDateTime(p.created_at)}</td>
-                    <td className="p-4">
-                      <div className="font-medium">{p.reseller?.name || '—'}</div>
-                      <div className="text-xs text-text-muted">{p.reseller?.email}</div>
-                    </td>
-                    <td className="p-4">
-                      <span className="text-xs px-2 py-1 rounded-full bg-white/5">
-                        {planLabel[p.plan_code || 'vitalicio'] || p.plan_code}
-                      </span>
-                    </td>
-                    <td className="p-4 font-mono font-tabular font-semibold">{p.package_size}</td>
-                    <td className="p-4 font-mono font-tabular">{formatBRL(p.total_cents)}</td>
-                    <td className="p-4">
-                      <div className="font-mono font-tabular text-sm">
-                        {p.keys_generated}/{p.package_size}
-                      </div>
-                      {p.keys_generated === p.package_size && (
-                        <div className="text-[10px] text-primary">completo</div>
-                      )}
-                    </td>
-                    <td className="p-4">
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        p.payment_status === 'paid' ? 'bg-primary/15 text-primary' :
-                        p.payment_status === 'pending' ? 'bg-accent-gold/15 text-accent-gold' :
-                        'bg-red-500/15 text-red-400'
-                      }`}>
-                        {p.payment_status}
-                      </span>
-                    </td>
-                  </motion.tr>
-                ))}
-              </tbody>
-            </table>
+      <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]">
+        <div className="p-4 border-b border-[var(--color-border)] flex items-center gap-2 flex-wrap">
+          <div className="relative flex-1 max-w-sm min-w-[200px]">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-dim)]" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar cliente ou revendedor…"
+              className="w-full h-9 pl-9 pr-3 rounded-md bg-[var(--color-surface-2)] border border-[var(--color-border)] text-sm placeholder:text-[var(--color-text-dim)] outline-none focus:border-[var(--color-primary)]/50"
+            />
+          </div>
+          <div className="flex gap-1 ml-auto text-xs">
+            {([
+              ['all', `Todas (${counts.all})`],
+              ['active', `Ativas (${counts.active})`],
+              ['pending', `Pendentes (${counts.pending})`],
+              ['lost', `Perdidas (${counts.lost})`],
+            ] as const).map(([k, l]) => (
+              <button
+                key={k}
+                onClick={() => setTab(k)}
+                className={
+                  'px-3 py-1.5 rounded-md ' +
+                  (tab === k
+                    ? 'bg-[var(--color-surface-2)] text-[var(--color-text)] border border-[var(--color-border)]'
+                    : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]')
+                }
+              >
+                {l}
+              </button>
+            ))}
           </div>
         </div>
-      )}
+
+        {loading ? (
+          <div className="p-12 grid place-items-center text-[var(--color-text-muted)]">
+            <LoaderRing size={24} />
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="p-16 text-center text-sm text-[var(--color-text-muted)]">
+            Nenhuma venda atribuída a revenda{search ? ` para "${search}"` : ''}.
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs text-[var(--color-text-dim)] border-b border-[var(--color-border)]">
+                <th className="font-normal py-3 pl-6">Cliente</th>
+                <th className="font-normal">Revenda</th>
+                <th className="font-normal">Plano</th>
+                <th className="font-normal">Comissão</th>
+                <th className="font-normal">Data</th>
+                <th className="font-normal">Status</th>
+                <th className="font-normal text-right pr-6">Valor</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((s) => {
+                const commission = Math.round((s.amount_cents * (s.commission_percent_at_sale || 60)) / 100);
+                return (
+                  <tr key={s.id} className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-surface-2)]/40">
+                    <td className="py-3 pl-6">
+                      <div className="font-medium truncate max-w-[200px]">{s.customers?.name || '—'}</div>
+                      <div className="text-xs text-[var(--color-text-dim)] truncate max-w-[200px]">{s.customers?.email}</div>
+                    </td>
+                    <td>
+                      <div className="text-sm">{s.resellers?.name}</div>
+                      <div className="text-xs text-[var(--color-text-dim)] font-mono">/c/{s.resellers?.slug}</div>
+                    </td>
+                    <td className="text-[var(--color-text-muted)]">{PLAN[s.plan_code] || s.plan_code}</td>
+                    <td className="text-xs">
+                      <div className="text-[var(--color-primary)] font-mono">{formatBRL(commission)}</div>
+                      <div className="text-[var(--color-text-dim)]">{s.commission_percent_at_sale || 60}%</div>
+                    </td>
+                    <td className="text-xs text-[var(--color-text-muted)] font-mono">
+                      {formatDateTime(s.created_at)}
+                    </td>
+                    <td>
+                      <span
+                        className={
+                          'inline-flex items-center gap-1 px-2 h-5 rounded text-[11px] font-medium border ' +
+                          (STATUS_TONE[s.status] || STATUS_TONE.canceled)
+                        }
+                      >
+                        {s.status}
+                      </span>
+                    </td>
+                    <td className="text-right pr-6 font-mono">{formatBRL(s.amount_cents)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <p className="text-xs text-[var(--color-text-dim)] mt-6 text-center">
+        Comissões são debitadas automaticamente do split na Pagar.me. Estornos descontam do saldo do revendedor.
+      </p>
     </div>
   );
 }
