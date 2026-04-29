@@ -35,7 +35,7 @@ type PixRow = {
 };
 
 type RecentItem = {
-  kind: 'pagarme' | 'mercadopago';
+  kind: 'pagarme' | 'mercadopago' | 'reseller_purchase';
   date: string;
   customer: string;
   email: string;
@@ -44,6 +44,7 @@ type RecentItem = {
   reseller_slug?: string | null;
   status: string;
   amount_cents: number;
+  package_size?: number;
 };
 
 type Stats = {
@@ -76,7 +77,7 @@ export default function Dashboard() {
       cutoff30.setDate(cutoff30.getDate() - 30);
       const cutoffIso = cutoff30.toISOString();
 
-      const [subsRes, mpRes, mpRecentRes, subsRecentRes, resellersRes, activeResellersRes, licensesRes] =
+      const [subsRes, mpRes, mpRecentRes, subsRecentRes, resellersRes, activeResellersRes, licensesRes, resellerPurchasesRes] =
         await Promise.all([
           // Subscriptions Pagar.me criadas nos últimos 30d
           supabase
@@ -105,10 +106,25 @@ export default function Dashboard() {
           supabase.from('resellers').select('id', { count: 'exact', head: true }),
           supabase.from('resellers').select('id', { count: 'exact', head: true }).eq('entry_paid', true),
           supabase.from('licenses').select('id', { count: 'exact', head: true }),
+          // Reseller purchases — modelo novo (revenda comprou pacote de chaves de nós)
+          supabase
+            .from('reseller_purchases')
+            .select('id, total_cents, package_size, plan_code, paid_at, reseller_id, resellers(name,slug)')
+            .eq('payment_status', 'paid')
+            .gte('paid_at', cutoffIso),
         ]);
 
       const subs30 = (subsRes.data || []) as SubRow[];
       const mp30 = (mpRes.data || []) as PixRow[];
+      const resellerPurchases30 = (resellerPurchasesRes.data || []) as Array<{
+        id: string;
+        total_cents: number;
+        package_size: number;
+        plan_code: string;
+        paid_at: string;
+        reseller_id: string;
+        resellers?: { name?: string; slug?: string };
+      }>;
 
       // MRR — assinaturas ativas Pagar.me (única fonte de recorrência)
       const { data: activeSubs } = await supabase
@@ -123,17 +139,24 @@ export default function Dashboard() {
 
       // Direct vs reseller (subscriptions)
       const directSubs = subs30.filter((s) => !s.reseller_id);
-      const viaReseller = subs30.filter((s) => s.reseller_id);
+      const viaResellerSubs = subs30.filter((s) => s.reseller_id);
 
       // Mercado Pago é sempre venda direta (site público devsemlimites.site)
       const mpSalesCount = mp30.length;
       const mpRevenue = mp30.reduce((s, x) => s + (x.amount_cents || 0), 0);
 
+      // Reseller purchases (modelo novo — pacote de chaves)
+      const rpCount = resellerPurchases30.length;
+      const rpRevenue = resellerPurchases30.reduce((s, x) => s + (x.total_cents || 0), 0);
+
+      // Totais via revenda = subscriptions com reseller_id + reseller_purchases pagas
+      const resellerSalesTotal = viaResellerSubs.length + rpCount;
+      const resellerRevenueTotal = viaResellerSubs.reduce((s, x) => s + x.amount_cents, 0) + rpRevenue;
+
       const directSalesTotal = directSubs.length + mpSalesCount;
       const directRevenueTotal = directSubs.reduce((s, x) => s + x.amount_cents, 0) + mpRevenue;
-      const totalSales = directSalesTotal + viaReseller.length;
-      const totalRevenue =
-        directRevenueTotal + viaReseller.reduce((s, x) => s + x.amount_cents, 0);
+      const totalSales = directSalesTotal + resellerSalesTotal;
+      const totalRevenue = directRevenueTotal + resellerRevenueTotal;
 
       setStats({
         mrr_cents: mrr,
@@ -141,9 +164,9 @@ export default function Dashboard() {
         sales_30d: totalSales,
         revenue_30d_cents: totalRevenue,
         direct_sales_30d: directSalesTotal,
-        reseller_sales_30d: viaReseller.length,
+        reseller_sales_30d: resellerSalesTotal,
         direct_revenue_30d: directRevenueTotal,
-        reseller_revenue_30d: viaReseller.reduce((s, x) => s + x.amount_cents, 0),
+        reseller_revenue_30d: resellerRevenueTotal,
         mp_sales_30d: mpSalesCount,
         mp_revenue_30d: mpRevenue,
         total_resellers: resellersRes.count || 0,
@@ -168,6 +191,11 @@ export default function Dashboard() {
       mp30.forEach((p) => {
         const k = (p.paid_at || p.created_at).slice(0, 10);
         if (k in days) days[k].direta += (p.amount_cents || 0) / 100;
+      });
+      // Reseller purchases (compras de pacote de chaves) → coluna revenda
+      resellerPurchases30.forEach((rp) => {
+        const k = (rp.paid_at || '').slice(0, 10);
+        if (k in days) days[k].revenda += (rp.total_cents || 0) / 100;
       });
       setChart(
         Object.entries(days).map(([date, v]) => ({
@@ -199,7 +227,21 @@ export default function Dashboard() {
         status: p.is_renewal ? 'renewal' : 'paid',
         amount_cents: p.amount_cents,
       }));
-      const merged = [...subsItems, ...mpItems]
+      // Reseller purchases (revendedor comprou pacote de chaves)
+      const rpItems: RecentItem[] = resellerPurchases30.map((rp) => ({
+        kind: 'reseller_purchase',
+        date: rp.paid_at,
+        customer: rp.resellers?.name || '—',
+        email: '',
+        plan: rp.plan_code,
+        origin: 'revenda',
+        reseller_slug: rp.resellers?.slug || null,
+        status: 'paid',
+        amount_cents: rp.total_cents,
+        package_size: rp.package_size,
+      }));
+
+      const merged = [...subsItems, ...mpItems, ...rpItems]
         .sort((a, b) => (a.date < b.date ? 1 : -1))
         .slice(0, 10);
       setRecent(merged);
